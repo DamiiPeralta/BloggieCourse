@@ -18,6 +18,8 @@ namespace Bloggie.Web.Repositories
             return tag;
         }
 
+        
+
         public async Task<Tag?> DeleteAsync(Guid id)
         {
             var existingTag = await bloggieDbContext.Tags.FindAsync(id);
@@ -32,9 +34,44 @@ namespace Bloggie.Web.Repositories
             return null;
         }
 
-        public async Task<IEnumerable<Tag>> GetAllAsync()
+        public async Task<IEnumerable<Tag>> GetAllAsync(
+            string? searchQuery = null,
+            string? sortBy = null,
+            string? sortDirection = null,
+            int pageNumber = 1,
+            int pageSize = 100)
         {
-            return await bloggieDbContext.Tags.ToListAsync();
+            var query = bloggieDbContext.Tags.AsQueryable();
+
+            //Filtering
+            if(string.IsNullOrEmpty(searchQuery) == false)
+            {
+                query = query.Where(x => x.Name.Contains(searchQuery) || 
+                                         x.DisplayName.Contains(searchQuery));
+            }
+
+            //Sorting
+            if(string.IsNullOrWhiteSpace(sortBy) == false)
+            {
+                var isDesc = string.Equals(sortDirection, "Desc", StringComparison.OrdinalIgnoreCase);
+                if (string.Equals(sortBy, "Name", StringComparison.OrdinalIgnoreCase))
+                { 
+                    query = isDesc ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name);
+                }
+                if(string.Equals(sortBy, "DisplayName", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = isDesc ? query.OrderByDescending(x => x.DisplayName) : query.OrderBy(x => x.DisplayName);
+                }
+            }
+            //Pagination
+            //Skip 0 Take 5 -> Page 1 of 5 results
+            //Skip 5 Take next 5 -> Page 2 of 5 results
+            var skipResults = (pageNumber - 1) * pageSize;
+            query = query.Skip(skipResults).Take(pageSize);
+
+            return await query.ToListAsync();
+
+            //return await bloggieDbContext.Tags.ToListAsync();
         }
 
         public async Task<Tag?> GetAsync(Guid id)
@@ -54,6 +91,10 @@ namespace Bloggie.Web.Repositories
                 return existingTag;
             }
             return null;
+        }
+        public async Task<int> CountAsync()
+        {
+            return await bloggieDbContext.Tags.CountAsync();
         }
     }
 }
